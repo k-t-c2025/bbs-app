@@ -41,3 +41,24 @@ body {
 button {
   cursor: pointer;
 }
+
+#text {
+  width: 500px;
+  height: 180px;
+  font-size: 16px;
+}
+
+#notificationArea {
+  display: flex;
+  align-items: center;
+  background: #0078ff;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#notificationArea span:first-child {
+  font-weight: bold;
+}
