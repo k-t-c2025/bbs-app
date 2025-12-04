@@ -1,264 +1,180 @@
-// Firebase SDK
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, serverTimestamp,
-  onSnapshot, query, orderBy, deleteDoc, doc
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// =========================
+// Firestore 初期化
+// =========================
+const db = firebase.firestore();
+const postsRef = db.collection("posts");
 
-
-// Firebase 設定
-const firebaseConfig = {
-  apiKey: "AIzaSyC10ERewIkpD_ZjQPneF3hWyunEKwBMCAQ",
-  authDomain: "keijibann-b44b8.firebaseapp.com",
-  projectId: "keijibann-b44b8",
-  storageBucket: "keijibann-b44b8.appspot.com",
-  messagingSenderId: "267259675864",
-  appId: "1:267259675864:web:971536e4f188051db5c3ad",
-  measurementId: "G-WW1ZETJDN8"
-};
-
-// 初期化
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// HTML要素
-const nameInput = document.getElementById("name");
-const textInput = document.getElementById("text");
-const sendBtn = document.getElementById("send");
-const postsDiv = document.getElementById("posts");
-
-const monthTagsDiv = document.getElementById("monthTags");
-const dayTagsDiv = document.getElementById("dayTags");
-
-
-// --------------------------
-// 投稿
-// --------------------------
-sendBtn.addEventListener("click", async () => {
-  const name = (nameInput.value || "名無し").trim();
-  const text = (textInput.value || "").trim();
-  if (!text) return;
-
-  await addDoc(collection(db, "posts"), {
-    name,
-    text,
-    createdAt: serverTimestamp()
-  });
-
-  textInput.value = "";
-});
-
-
-// --------------------------
-// Firestore → グループ化して表示
-// --------------------------
-const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-
-let postsData = []; // ← 全投稿データ保存
-
-onSnapshot(q, (snapshot) => {
-  postsData = [];
-
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    if (!data.createdAt?.toDate) return;
-    postsData.push({ id: docSnap.id, ...data });
-  });
-
-  renderMonthTags(); // 月一覧更新
-});
-
-
-// --------------------------
-// 月タグ生成
-// --------------------------
-function renderMonthTags() {
-  monthTagsDiv.innerHTML = "";
-  dayTagsDiv.innerHTML = "";
-  postsDiv.innerHTML = "";
-
-  // 月一覧抽出
-  const monthMap = {};
-
-  postsData.forEach((p) => {
-    const d = p.createdAt.toDate();
-    const ym = `${d.getFullYear()}-${d.getMonth() + 1}`;
-    if (!monthMap[ym]) monthMap[ym] = true;
-  });
-
-  const months = Object.keys(monthMap).sort().reverse();
-
-  months.forEach((ym) => {
-    const [y, m] = ym.split("-");
-
-    const mt = document.createElement("div");
-    mt.className = "month-tag";
-    mt.textContent = `${y}年${m}月`;
-
-    mt.addEventListener("click", () => {
-      document.querySelectorAll(".month-tag").forEach(t => t.classList.remove("active"));
-      mt.classList.add("active");
-      renderDayTags(ym);
-    });
-
-    monthTagsDiv.appendChild(mt);
-  });
+// =========================
+// 日付整形
+// =========================
+function formatDate(ts) {
+  const d = ts.toDate();
+  const y = d.getFullYear();
+  const m = ("0" + (d.getMonth() + 1)).slice( - 2);
+  const day = ("0" + d.getDate()).slice( - 2);
+  return { y, m, day };
 }
 
-
-// --------------------------
-// 日タグ生成
-// --------------------------
-function renderDayTags(ym) {
-  dayTagsDiv.innerHTML = "";
-  postsDiv.innerHTML = "";
-
-  const dayMap = {};
-
-  postsData.forEach((p) => {
-    const d = p.createdAt.toDate();
-    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-    if (key !== ym) return;
-
-    const ymd = `${key}-${d.getDate()}`;
-    if (!dayMap[ymd]) dayMap[ymd] = true;
-  });
-
-  const days = Object.keys(dayMap).sort().reverse();
-
-  days.forEach((ymd) => {
-    const day = ymd.split("-")[2];
-
-    const dt = document.createElement("div");
-    dt.className = "day-tag";
-    dt.textContent = `${day}日`;
-
-    dt.addEventListener("click", () => {
-      document.querySelectorAll(".day-tag").forEach(t => t.classList.remove("active"));
-      dt.classList.add("active");
-      renderPosts(ymd);
-    });
-
-    dayTagsDiv.appendChild(dt);
-  });
+// =========================
+// 未読管理（localStorage）
+// =========================
+function loadUnread() {
+  return JSON.parse(localStorage.getItem("unread")) || {};
 }
 
-
-// --------------------------
-// 投稿一覧表示
-// --------------------------
-function renderPosts(ymd) {
-  postsDiv.innerHTML = "";
-
-  postsData.forEach((post) => {
-    const d = post.createdAt.toDate();
-    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-
-    if (key !== ymd) return;
-
-    const card = document.createElement("div");
-    card.className = "post";
-
-    card.innerHTML = `
-      <div class="name">${escapeHtml(post.name)}</div>
-      <div class="time">${d.toLocaleString("ja-JP")}</div>
-      <div class="text">${escapeHtml(post.text).replace(/\n/g, "<br>")}</div>
-      <button class="deleteBtn" data-id="${post.id}">削除</button>
-    `;
-
-    postsDiv.appendChild(card);
-  });
+function saveUnread(data) {
+  localStorage.setItem("unread", JSON.stringify(data));
 }
 
+// =========================
+// タイトル点滅
+// =========================
+let titleBlinkInterval = null;
+function startTitleBlink() {
+  if (titleBlinkInterval) return;
+  const original = document.title;
 
-// --------------------------
-// 削除処理
-// --------------------------
-document.addEventListener("click", async (e) => {
-  if (e.target.classList.contains("deleteBtn")) {
-    const id = e.target.dataset.id;
-    if (!confirm("この投稿を削除しますか？")) return;
-    await deleteDoc(doc(db, "posts", id));
-  }
-});
-
-
-// --------------------------
-// 🔔通知（未読バッジ + タイトル点滅）
-// --------------------------
-const badge = document.getElementById("badge");
-let originalTitle = document.title;
-let blinkTimer = null;
-
-// 点滅開始
-function startBlink() {
-  if (blinkTimer) return;
-  blinkTimer = setInterval(() => {
-    document.title = (document.title === "📩 新着あり！") ? originalTitle : "📩 新着あり！";
+  titleBlinkInterval = setInterval(() => {
+    document.title =
+      document.title === "📢 新着あり！" ? original : "📢 新着あり！";
   }, 1000);
 }
 
-// 点滅停止
-function stopBlink() {
-  clearInterval(blinkTimer);
-  blinkTimer = null;
-  document.title = originalTitle;
+function stopTitleBlink() {
+  if (titleBlinkInterval) {
+    clearInterval(titleBlinkInterval);
+    titleBlinkInterval = null;
+  }
 }
 
+// =========================
+// UI 追加処理
+// =========================
+const listArea = document.getElementById("postList");
+const badge = document.getElementById("badge");
 
-// Firestore 新着監視
-let latestPostTime = null;
+// =========================
+// Firestore リアルタイム取得
+// =========================
+postsRef.orderBy("timestamp", "desc").onSnapshot((snap) => {
 
-onSnapshot(q, (snapshot) => {
-  if (snapshot.docs.length > 0) {
-    const latest = snapshot.docs[0].data().createdAt?.toDate();
+  let unread = loadUnread();
+  const now = Date.now();
 
-    if (latestPostTime === null) {
-      latestPostTime = latest;
-    } else {
-      if (latest > latestPostTime) {
-        showNotification();
-        latestPostTime = latest;
+  listArea.innerHTML = "";
+  let data = {};
+
+  snap.forEach((doc) => {
+    const post = doc.data();
+    const { y, m, day } = formatDate(post.timestamp);
+
+    if (!data[y]) data[y] = {};
+    if (!data[y][m]) data[y][m] = {};
+    if (!data[y][m][day]) data[y][m][day] = [];
+
+    data[y][m][day].push({
+      id: doc.id,
+      text: post.text,
+      ts: post.timestamp.toDate().getTime(),
+    });
+
+    // 未読処理（1週間保持）
+    if (!unread[doc.id]) {
+      unread[doc.id] = { ts: post.timestamp.toDate().getTime() };
+    }
+  });
+
+  // 古い未読削除（1週間以上）
+  for (const id in unread) {
+    if (now - unread[id].ts > 7 * 24 * 60 * 60 * 1000) {
+      delete unread[id];
+    }
+  }
+
+  saveUnread(unread);
+
+  // バッジ更新
+  const unreadCount = Object.keys(unread).length;
+  badge.textContent = unreadCount;
+  badge.style.display = unreadCount > 0 ? "inline-block" : "none";
+
+  if (unreadCount > 0) startTitleBlink();
+  else stopTitleBlink();
+
+  // =========================
+  // HTML生成（年→月→日→投稿）
+  // =========================
+
+  for (const year in data) {
+    const yBox = document.createElement("div");
+    yBox.className = "year-box";
+    yBox.innerHTML = `<h2 class="year-tag">${year}年</h2>`;
+    listArea.appendChild(yBox);
+
+    for (const month in data[year]) {
+      const mBox = document.createElement("div");
+      mBox.className = "month-box";
+
+      const mTag = document.createElement("div");
+      mTag.className = "month-tag";
+      mTag.textContent = `${month}月`;
+      mTag.dataset.open = "0";
+
+      // 月クリック → 開閉
+      mTag.addEventListener("click", () => {
+        const open = mTag.dataset.open === "1";
+        mTag.dataset.open = open ? "0" : "1";
+        mChild.style.display = open ? "none" : "block";
+      });
+
+      const mChild = document.createElement("div");
+      mChild.className = "month-child";
+      mChild.style.display = "none";
+
+      mBox.appendChild(mTag);
+      mBox.appendChild(mChild);
+      yBox.appendChild(mBox);
+
+      for (const day in data[year][month]) {
+        const dBox = document.createElement("div");
+        dBox.className = "day-box";
+
+        const dTag = document.createElement("div");
+        dTag.className = "day-tag";
+        dTag.textContent = `${Number(day)}日`;
+        dTag.dataset.open = "0";
+
+        const dChild = document.createElement("div");
+        dChild.className = "day-child";
+        dChild.style.display = "none";
+
+        // 日クリック → 開閉
+        dTag.addEventListener("click", () => {
+          const open = dTag.dataset.open === "1";
+          dTag.dataset.open = open ? "0" : "1";
+          dChild.style.display = open ? "none" : "block";
+        });
+
+        // 投稿リスト
+        data[year][month][day].forEach((p) => {
+          const pDiv = document.createElement("div");
+          pDiv.className = "post";
+
+          const isUnread = unread[p.id] ? "unread" : "";
+
+          pDiv.innerHTML = `
+            <div class="post-text ${isUnread}">
+              ${p.text}
+            </div>
+          `;
+
+          dChild.appendChild(pDiv);
+        });
+
+        dBox.appendChild(dTag);
+        dBox.appendChild(dChild);
+        mChild.appendChild(dBox);
       }
     }
   }
 });
-
-
-// 通知を出す
-function showNotification() {
-  const now = Date.now();
-  localStorage.setItem("lastNotification", now);
-
-  badge.style.display = "inline-block";
-  startBlink();
-}
-
-
-// ページ読み込み → 1週間以内なら通知継続
-window.addEventListener("load", () => {
-  const last = localStorage.getItem("lastNotification");
-  if (!last) return;
-
-  const oneWeek = 7 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
-
-  if (now - last < oneWeek) {
-    badge.style.display = "inline-block";
-    startBlink();
-  } else {
-    localStorage.removeItem("lastNotification");
-    stopBlink();
-  }
-});
-
-
-// HTMLエスケープ
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
