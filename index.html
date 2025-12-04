@@ -1,60 +1,49 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>掲示板</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<h2>掲示板</h2>
+  <header>
+    <h1>掲示板</h1>
+    <!-- 通知（最上部） -->
+    <div id="notificationWrap">
+      <button id="notificationBtn" class="notification-btn">🔔 通知
+        <span id="badge" class="badge" style="display:none">0</span>
+      </button>
+    </div>
+  </header>
 
-<div style="display:flex; align-items:center; gap:20px;">
+  <main>
+    <!-- 投稿フォーム -->
+    <section id="postForm">
+      <input id="name" type="text" placeholder="名前" />
+      <textarea id="text" placeholder="投稿内容" rows="6" cols="40"></textarea>
+      <input id="image" type="file" accept="image/*" />
+      <div style="margin-top:8px">
+        <button id="send">送信</button>
+      </div>
+    </section>
 
-  <!-- 投稿フォーム -->
-  <div>
-    <input id="name" type="text" placeholder="名前"><br><br>
+    <hr />
 
-    <textarea id="text" placeholder="投稿内容" rows="6" cols="40"></textarea><br><br>
+    <!-- 年/月/日 ツリー（JS が自動生成） -->
+    <section id="treeArea">
+      <div id="dateTree"></div>
+    </section>
 
-    <input id="image" type="file" accept="image/*"><br><br>
+    <hr />
 
-    <button id="send">送信</button>
-  </div>
+    <!-- 投稿一覧（クリックした日だけここに表示） -->
+    <section id="postsArea">
+      <div id="posts"></div>
+    </section>
+  </main>
 
-  <!-- 通知バッジ -->
-<!-- 年タグのエリア -->
-<div id="yearTags" style="display:flex; gap:10px; align-items:center;">
-  <div id="notificationArea" class="bb-tag">
-    <span>📮 掲示板</span>
-    <span id="badge"
-      style="
-        background:red;
-        color:white;
-        padding:2px 6px;
-        font-size:12px;
-        border-radius:50%;
-        display:none;
-        margin-left:4px;
-      ">
-    </span>
-  </div>
-</div>
-
-
-</div>
-
-<hr>
-
-<!-- ▼ 日付ツリー（年 → 月 → 日） -->
-<div id="dateTree"></div>
-
-<hr>
-
-<!-- ▼ 投稿一覧（※表示は日付をクリックした時のみ） -->
-<div id="posts"></div>
-
-<script type="module" src="app.js"></script>
-
+  <script type="module" src="app.js"></script>
 </body>
 </html>
