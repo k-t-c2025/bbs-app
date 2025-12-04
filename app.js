@@ -1,18 +1,24 @@
-// app.js（完全版）
-// -----------------
-// 必ず firebaseConfig をあなたの値に書き換えてください
+// ==========================================================
+// Firebase 読み込み
+// ==========================================================
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, serverTimestamp,
-  onSnapshot, query, orderBy, deleteDoc, doc
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  onSnapshot, query, orderBy, doc, deleteDoc, updateDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
 import {
   getStorage, ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-// --- Firebase 設定（ここを書き換えてください） ---
+// ==========================================================
+// Firebase 初期化
+// ==========================================================
 const firebaseConfig = {
+  // ★ Firebase 設定をここへ貼ってください ★
   apiKey: "AIzaSyC10ERewIkpD_ZjQPneF3hWyunEKwBMCAQ",
   authDomain: "keijibann-b44b8.firebaseapp.com",
   projectId: "keijibann-b44b8",
@@ -22,283 +28,299 @@ const firebaseConfig = {
   measurementId: "G-WW1ZETJDN8"
 };
 
-// 初期化
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const storage = getStorage(app);
-
-// DOM
-const nameInput = document.getElementById("name");
-const textInput = document.getElementById("text");
-const imageInput = document.getElementById("image");
-const sendBtn = document.getElementById("send");
-const postsDiv = document.getElementById("posts");
-const yearTagsDiv = document.getElementById("yearTags");
-const monthTagsDiv = document.getElementById("monthTags");
-const dayTagsDiv = document.getElementById("dayTags");
-const badge = document.getElementById("badge");
-
-// 定数
-const UNREAD_LIMIT = 7 * 24 * 60 * 60 * 1000; // 7日
+initializeApp(firebaseConfig);
+const db = getFirestore();
+const storage = getStorage();
 const postsCol = collection(db, "posts");
 
-// タイトル点滅
-let blinkTimer = null;
-const originalTitle = document.title || "掲示板";
-function startTitleBlink() {
-  if (blinkTimer) return;
-  let flag = false;
-  blinkTimer = setInterval(() => {
-    document.title = flag ? originalTitle : "★新着あり★ 掲示板";
-    flag = !flag;
-  }, 800);
-}
-function stopTitleBlink() {
-  if (!blinkTimer) return;
-  clearInterval(blinkTimer);
-  blinkTimer = null;
-  document.title = originalTitle;
-}
 
-// helpers
-function escapeHtml(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
-function pad(n){ return ("0"+n).slice(-2); }
-function yKey(d){ return `${d.getFullYear()}`; }
-function mKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
-function dKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-function isUnread(createdAt){
-  if (!createdAt || typeof createdAt.toDate !== "function") return false;
-  return (Date.now() - createdAt.toDate().getTime()) < UNREAD_LIMIT;
-}
+// ==========================================================
+// 投稿送信
+// ==========================================================
+document.getElementById("send").addEventListener("click", async () => {
+  const name = document.getElementById("name").value.trim();
+  const text = document.getElementById("text").value.trim();
+  const imageFile = document.getElementById("image").files[0];
 
-// テキストエリア幅指定（cols/rows）
-try {
-  if (textInput) { textInput.setAttribute("cols","20"); textInput.setAttribute("rows","5"); }
-} catch(e){}
-
-// 画像アップロード
-async function uploadImage(file){
-  if (!file) return "";
-  const r = ref(storage, `images/${Date.now()}_${file.name}`);
-  await uploadBytes(r, file);
-  return await getDownloadURL(r);
-}
-
-// 投稿送信（画像対応）
-sendBtn.addEventListener("click", async () => {
-  const name = (nameInput.value || "名無し").trim();
-  const text = (textInput.value || "").trim();
-
-  if (!text && (!imageInput || !imageInput.files || imageInput.files.length===0)) {
-    alert("投稿内容または画像を入力してください");
+  if (!name || !text) {
+    alert("名前と内容を入力してください");
     return;
   }
 
-  sendBtn.disabled = true;
-  try {
-    let imageUrl = "";
-    if (imageInput && imageInput.files && imageInput.files[0]) {
-      imageUrl = await uploadImage(imageInput.files[0]);
-    }
+  let imageUrl = null;
 
-    await addDoc(postsCol, {
-      name,
-      text,
-      imageUrl,
-      parentId: null,
-      createdAt: serverTimestamp()
-    });
-
-    textInput.value = "";
-    if (imageInput) imageInput.value = "";
-  } catch(err){
-    console.error("投稿エラー", err);
-    alert("投稿に失敗しました（コンソール参照）");
-  } finally {
-    sendBtn.disabled = false;
+  // 画像を Storage にアップロード
+  if (imageFile) {
+    const storageRef = ref(storage, "images/" + Date.now() + "_" + imageFile.name);
+    await uploadBytes(storageRef, imageFile);
+    imageUrl = await getDownloadURL(storageRef);
   }
-});
 
-// 返信を送信する（親ID指定）
-async function sendReply(parentId, replyName, replyText){
   await addDoc(postsCol, {
-    name: replyName || "名無し",
-    text: replyText,
-    imageUrl: "",
-    parentId,
+    name,
+    text,
+    imageUrl,
+    parentId: null,
     createdAt: serverTimestamp()
   });
-}
 
-// Firestore から取得（安定の昇順）
-const q = query(postsCol, orderBy("createdAt", "asc"));
-
-// onSnapshot は常に1回だけ登録
-onSnapshot(q, (snap) => {
-  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-  // build tree
-  const tree = {}; // { year: { monthKey: { dayKey: [posts...] } } }
-  let unreadCount = 0;
-
-  docs.forEach(p => {
-    if (!p.createdAt || typeof p.createdAt.toDate !== "function") return;
-    const dt = p.createdAt.toDate();
-    const y = yKey(dt), m = mKey(dt), d = dKey(dt);
-    if (!tree[y]) tree[y] = {};
-    if (!tree[y][m]) tree[y][m] = {};
-    if (!tree[y][m][d]) tree[y][m][d] = [];
-    tree[y][m][d].push(p);
-
-    if (isUnread(p.createdAt)) unreadCount++;
-  });
-
-  // バッジ・点滅更新
-  if (unreadCount>0) { badge.style.display="inline-block"; badge.textContent = unreadCount; startTitleBlink(); }
-  else { badge.style.display="none"; badge.textContent=""; stopTitleBlink(); }
-
-  // render tree
-  renderTree(tree);
+  document.getElementById("text").value = "";
+  document.getElementById("image").value = "";
 });
 
-// render tree -> year -> month -> day (day toggles posts)
-function renderTree(tree){
-  yearTagsDiv?.replaceChildren();
-  monthTagsDiv?.replaceChildren();
-  dayTagsDiv?.replaceChildren();
-  postsDiv.innerHTML = "";
 
-  // years desc
-  const years = Object.keys(tree).sort((a,b)=>b.localeCompare(a));
-  years.forEach(year=>{
-    const yearBtn = document.createElement("button");
-    yearBtn.className = "year-btn";
-    yearBtn.textContent = `${year}年`;
-    yearBtn.addEventListener("click", ()=>{
-      // when year clicked, show months in monthTagsDiv
-      monthTagsDiv.innerHTML = "";
-      dayTagsDiv.innerHTML = "";
-      postsDiv.innerHTML = "";
-      const months = Object.keys(tree[year]).sort((a,b)=> b.localeCompare(a));
-      months.forEach(mk=>{
-        const monthBtn = document.createElement("button");
-        monthBtn.className = "month-btn";
-        const monthLabel = mk.split("-")[1];
-        monthBtn.textContent = `${monthLabel}月`;
-        monthBtn.addEventListener("click", ()=>{
-          // show days
-          dayTagsDiv.innerHTML = "";
-          postsDiv.innerHTML = "";
-          const days = Object.keys(tree[year][mk]).sort((a,b)=> b.localeCompare(a));
-          days.forEach(dk=>{
-            const dayBtn = document.createElement("button");
-            dayBtn.className = "day-btn";
-            const dayLabel = dk.split("-")[2];
-            dayBtn.textContent = `${dayLabel}日`;
-            dayBtn.addEventListener("click", ()=>{
-              // toggle posts for this day (if already shown, hide)
-              const shown = postsDiv.getAttribute("data-day") === dk;
-              if (shown){
-                postsDiv.innerHTML = "";
-                postsDiv.removeAttribute("data-day");
-                return;
-              }
-              postsDiv.setAttribute("data-day", dk);
-              postsDiv.innerHTML = "";
-              // render posts for this day (roots first, with replies)
-              const allDayPosts = tree[year][mk][dk];
-              // map replies by parentId
-              const replyMap = {};
-              allDayPosts.forEach(p=>{
-                if (p.parentId){
-                  if (!replyMap[p.parentId]) replyMap[p.parentId]=[];
-                  replyMap[p.parentId].push(p);
-                }
-              });
-              // roots sorted by createdAt desc
-              const roots = allDayPosts.filter(p=>!p.parentId).sort((a,b)=> b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
-              roots.forEach(root=>{
-                const card = makePostCard(root, replyMap[root.id] || []);
-                postsDiv.appendChild(card);
-              });
-            });
-            dayTagsDiv.appendChild(dayBtn);
-          });
-        });
-        monthTagsDiv.appendChild(monthBtn);
-      });
-    });
-    yearTagsDiv.appendChild(yearBtn);
+// ==========================================================
+// Firestore リアルタイム取得
+// ==========================================================
+const q = query(postsCol, orderBy("createdAt", "asc"));
+
+onSnapshot(q, (snapshot) => {
+  const posts = [];
+  snapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+
+  renderDateTree(posts);
+  renderPosts(posts);
+  updateBadge(posts);
+});
+
+
+// ==========================================================
+// 未読判定（7日以内）
+// ==========================================================
+function isUnread(post) {
+  if (!post.createdAt) return false;
+
+  const now = Date.now();
+  const t = post.createdAt.toDate().getTime();
+  return now - t < 7 * 24 * 60 * 60 * 1000;
+}
+
+
+// ==========================================================
+// バッジ（未読数）
+// ==========================================================
+let blinkTimer = null;
+
+function updateBadge(posts) {
+  const unreadCount = posts.filter(isUnread).length;
+  const badge = document.getElementById("badge");
+
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount;
+    badge.style.display = "inline-block";
+    startBlink();
+  } else {
+    badge.style.display = "none";
+    stopBlink();
+  }
+}
+
+function startBlink() {
+  if (blinkTimer) return;
+  blinkTimer = setInterval(() => {
+    document.title = document.title.includes("★")
+      ? "掲示板"
+      : "★新着あり★ 掲示板";
+  }, 900);
+}
+
+function stopBlink() {
+  clearInterval(blinkTimer);
+  blinkTimer = null;
+  document.title = "掲示板";
+}
+
+
+// ==========================================================
+// 年 → 月 → 日 ツリー
+// ==========================================================
+function renderDateTree(posts) {
+  const years = {};
+
+  posts.forEach(p => {
+    if (!p.createdAt) return;
+    const d = p.createdAt.toDate();
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+
+    years[y] ??= {};
+    years[y][m] ??= {};
+    years[y][m][day] ??= [];
+    years[y][m][day].push(p);
+  });
+
+  const yearBox = document.getElementById("yearTags");
+  yearBox.innerHTML = "";
+
+  Object.keys(years).forEach(year => {
+    const tag = document.createElement("div");
+    tag.className = "year-tag";
+    tag.textContent = year;
+
+    tag.addEventListener("click", () => renderMonthTags(years[year], year));
+    yearBox.appendChild(tag);
   });
 }
 
-// create DOM for post + replies
-function makePostCard(post, replies){
-  const card = document.createElement("div");
-  card.className = "post";
-  if (isUnread(post.createdAt)) card.classList.add("unread");
+function renderMonthTags(monthData, year) {
+  const box = document.getElementById("monthTags");
+  box.innerHTML = "";
 
-  const timeText = post.createdAt && typeof post.createdAt.toDate==="function"
+  Object.keys(monthData).forEach(m => {
+    const tag = document.createElement("div");
+    tag.className = "month-tag";
+    tag.textContent = `${year}年 ${m}月`;
+
+    tag.addEventListener("click", () => renderDayTags(monthData[m], year, m));
+    box.appendChild(tag);
+  });
+}
+
+function renderDayTags(dayData, year, month) {
+  const box = document.getElementById("dayTags");
+  box.innerHTML = "";
+
+  Object.keys(dayData).forEach(day => {
+    const tag = document.createElement("div");
+    tag.className = "day-tag";
+    tag.textContent = `${month}月${day}日`;
+
+    tag.addEventListener("click", () => renderPosts(dayData[day]));
+    box.appendChild(tag);
+  });
+}
+
+
+// ==========================================================
+// 投稿をリスト表示（返信ツリー）
+// ==========================================================
+function renderPosts(posts) {
+  const box = document.getElementById("posts");
+  box.innerHTML = "";
+
+  const roots = posts.filter(p => !p.parentId);
+  const replies = posts.filter(p => p.parentId);
+
+  roots.forEach(post => {
+    box.appendChild(createPostCard(post));
+
+    replies
+      .filter(r => r.parentId === post.id)
+      .forEach(reply => box.appendChild(createPostCard(reply, true)));
+  });
+}
+
+
+// ==========================================================
+// 投稿カード（削除・編集付き）
+// ==========================================================
+function createPostCard(post, isReply = false) {
+  const div = document.createElement("div");
+  div.className = "post";
+  if (isReply) div.classList.add("reply");
+
+  if (isUnread(post)) div.classList.add("unread");
+
+  const date = post.createdAt
     ? post.createdAt.toDate().toLocaleString()
     : "日時なし";
 
-  let inner = `<div><strong>${escapeHtml(post.name)}</strong>（${escapeHtml(timeText)}）</div>`;
-  inner += `<div class="post-text">${escapeHtml(post.text).replace(/\n/g,"<br>")}</div>`;
-  if (post.imageUrl) inner += `<img src="${escapeHtml(post.imageUrl)}" style="max-width:320px;margin-top:8px;border-radius:6px;">`;
+  div.innerHTML = `
+    <b>${post.name}</b>（${date}）<br>
+    <div class="post-text">${post.text}</div>
+    ${post.imageUrl ? `<img src="${post.imageUrl}" style="max-width:200px;">` : ""}
 
-  card.innerHTML = inner;
+    <div style="margin-top:8px;">
+      <button class="replyBtn">返信</button>
+      <button class="editBtn">編集</button>
+      <button class="deleteBtn">削除</button>
+    </div>
 
-  // reply button + form
-  const replyBtn = document.createElement("button");
-  replyBtn.className = "reply-btn";
-  replyBtn.textContent = "返信";
-  card.appendChild(replyBtn);
+    <!-- 返信フォーム -->
+    <div class="replyForm" style="display:none; margin-top:6px;">
+      <input type="text" class="replyName" placeholder="名前"><br>
+      <textarea class="replyText" rows="3" cols="20" placeholder="返信内容"></textarea><br>
+      <button class="sendReply">返信を送信</button>
+    </div>
 
-  const form = document.createElement("div");
-  form.className = "reply-form";
-  form.style.display = "none";
-  form.innerHTML = `
-    <input class="reply-name" placeholder="名前"><br>
-    <textarea class="reply-text" rows="3" cols="20" placeholder="返信内容"></textarea><br>
-    <button class="reply-send">送信</button>
+    <!-- 編集フォーム -->
+    <div class="editForm" style="display:none; margin-top:6px;">
+      <textarea class="editText" rows="3" cols="25">${post.text}</textarea><br>
+      <button class="saveEdit">保存</button>
+      <button class="cancelEdit">キャンセル</button>
+    </div>
   `;
-  card.appendChild(form);
 
-  replyBtn.addEventListener("click", ()=> form.style.display = form.style.display === "none" ? "block" : "none");
-
-  form.querySelector(".reply-send").addEventListener("click", async ()=>{
-    const rname = form.querySelector(".reply-name").value.trim() || "名無し";
-    const rtext = form.querySelector(".reply-text").value.trim();
-    if (!rtext){ alert("返信内容を入力してください"); return; }
-    await sendReply(post.id, rname, rtext);
-    form.querySelector(".reply-name").value = "";
-    form.querySelector(".reply-text").value = "";
-    form.style.display = "none";
+  // =========================
+  // 返信フォーム
+  // =========================
+  const replyBtn = div.querySelector(".replyBtn");
+  const replyForm = div.querySelector(".replyForm");
+  replyBtn.addEventListener("click", () => {
+    replyForm.style.display =
+      replyForm.style.display === "none" ? "block" : "none";
   });
 
-  // replies (render under card)
-  if (Array.isArray(replies) && replies.length>0){
-    replies.sort((a,b)=> a.createdAt.toDate().getTime() - b.createdAt.toDate().getTime());
-    replies.forEach(r=>{
-      const rdiv = document.createElement("div");
-      rdiv.className = "post";
-      rdiv.style.marginLeft = "18px";
-      rdiv.style.background = "#fafafa";
-      const rtime = r.createdAt && typeof r.createdAt.toDate==="function" ? r.createdAt.toDate().toLocaleString() : "日時なし";
-      rdiv.innerHTML = `<div><strong>${escapeHtml(r.name)}</strong>（${escapeHtml(rtime)}）</div><div class="post-text">${escapeHtml(r.text).replace(/\n/g,"<br>")}</div>`;
-      card.appendChild(rdiv);
+  div.querySelector(".sendReply").addEventListener("click", async () => {
+    const replyName = div.querySelector(".replyName").value.trim();
+    const replyText = div.querySelector(".replyText").value.trim();
+
+    if (!replyName || !replyText) {
+      alert("返信の名前・内容を入力してください");
+      return;
+    }
+
+    await addDoc(postsCol, {
+      name: replyName,
+      text: replyText,
+      parentId: post.id,
+      imageUrl: null,
+      createdAt: serverTimestamp()
     });
-  }
 
-  // delete button for post (optional)
-  const del = document.createElement("button");
-  del.textContent = "削除";
-  del.style.marginLeft = "8px";
-  del.addEventListener("click", async ()=>{
-    if (!confirm("この投稿を削除しますか？（返信は残ります）")) return;
-    try { await deleteDoc(doc(db,"posts",post.id)); } catch(e){ console.error(e); alert("削除失敗"); }
+    replyForm.style.display = "none";
   });
-  card.appendChild(del);
 
-  return card;
+  // =========================
+  // 編集フォーム
+  // =========================
+  const editBtn = div.querySelector(".editBtn");
+  const editForm = div.querySelector(".editForm");
+  const postText = div.querySelector(".post-text");
+
+  editBtn.addEventListener("click", () => {
+    editForm.style.display =
+      editForm.style.display === "none" ? "block" : "none";
+  });
+
+  div.querySelector(".saveEdit").addEventListener("click", async () => {
+    const newText = div.querySelector(".editText").value.trim();
+    if (!newText) {
+      alert("内容を入力してください");
+      return;
+    }
+
+    await updateDoc(doc(db, "posts", post.id), { text: newText });
+
+    postText.textContent = newText;
+    editForm.style.display = "none";
+  });
+
+  div.querySelector(".cancelEdit").addEventListener("click", () => {
+    editForm.style.display = "none";
+  });
+
+  // =========================
+  // 削除
+  // =========================
+  const deleteBtn = div.querySelector(".deleteBtn");
+
+  deleteBtn.addEventListener("click", async () => {
+    if (!confirm("本当に削除しますか？")) return;
+
+    await deleteDoc(doc(db, "posts", post.id));
+  });
+
+  return div;
 }

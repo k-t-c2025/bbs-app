@@ -3,40 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <title>掲示板</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header>
-    <h1>掲示板</h1>
-    <div id="notificationArea">
-      <span>📮 掲示板</span>
-      <span id="badge" aria-hidden="true" style="display:none"></span>
-    </div>
-  </header>
+<div id="headerArea">
+  <!-- バッジ付き掲示板 -->
+  <div id="notificationArea">
+    <span class="board-title">📮 掲示板</span>
+    <span id="badge" class="badge"></span>
+  </div>
 
-  <main>
-    <section id="formArea">
-      <input id="name" type="text" placeholder="名前">
-      <textarea id="text" placeholder="投稿内容" rows="5" cols="20"></textarea>
-      <input id="image" type="file" accept="image/*">
-      <button id="send">送信</button>
-    </section>
+  <!-- 年ツリー -->
+  <div id="yearTags"></div>
+</div>
 
-    <hr>
+<hr>
 
-    <!-- ツリーエリア -->
-    <section id="treeArea">
-      <div id="yearTags" class="tag-row"></div>
-      <div id="monthTags" class="tag-row"></div>
-      <div id="dayTags" class="tag-row"></div>
-    </section>
+<h2>投稿フォーム</h2>
 
-    <!-- 投稿一覧 -->
-    <section id="posts"></section>
-  </main>
+<input id="name" type="text" placeholder="名前"><br><br>
 
-  <script type="module" src="app.js"></script>
+<textarea id="text" placeholder="投稿内容（20文字×5行）" rows="5" cols="20"></textarea><br>
+
+<input id="image" type="file" accept="image/*"><br><br>
+
+<button id="send">送信</button>
+
+<hr>
+
+<!-- 月タグ -->
+<div id="monthTags"></div>
+
+<!-- 日タグ -->
+<div id="dayTags"></div>
+
+<!-- 投稿一覧 -->
+<div id="posts"></div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
