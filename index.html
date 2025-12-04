@@ -3,47 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <title>掲示板</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>掲示板</h2>
+  <header>
+    <h1>掲示板</h1>
+    <div id="notificationArea">
+      <span>📮 掲示板</span>
+      <span id="badge" aria-hidden="true" style="display:none"></span>
+    </div>
+  </header>
 
-<input id="name" type="text" placeholder="名前"><br><br>
-<textarea id="text" placeholder="投稿内容" rows="5" cols="20"></textarea>
-<input id="image" type="file" accept="image/*"><br><br>
+  <main>
+    <section id="formArea">
+      <input id="name" type="text" placeholder="名前">
+      <textarea id="text" placeholder="投稿内容" rows="5" cols="20"></textarea>
+      <input id="image" type="file" accept="image/*">
+      <button id="send">送信</button>
+    </section>
 
-<button id="send">送信</button>
+    <hr>
 
-<hr>
+    <!-- ツリーエリア -->
+    <section id="treeArea">
+      <div id="yearTags" class="tag-row"></div>
+      <div id="monthTags" class="tag-row"></div>
+      <div id="dayTags" class="tag-row"></div>
+    </section>
 
-<div id="notificationArea" style="position: relative; display: inline-block;">
-  <span>📮 掲示板</span>
-  <span id="badge"
-      style="
-      position: absolute;
-      top: -5px;
-      right: -10px;
-      background: red;
-      color: white;
-      padding: 2px 6px;
-      font-size: 12px;
-      border-radius: 50%;
-      display: none;
-  ">
-  </span>
-</div>
+    <!-- 投稿一覧 -->
+    <section id="posts"></section>
+  </main>
 
-<!-- 月別タグエリア -->
-<div id="monthTags" class="month-tags"></div>
-
-<!-- 日別タグエリア -->
-<div id="dayTags" class="day-tags"></div>
-
-<!-- 投稿一覧（※ここだけ！） -->
-<div id="posts"></div>
-
-<script type="module" src="app.js"></script>
-
+  <script type="module" src="app.js"></script>
 </body>
 </html>
