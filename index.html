@@ -7,38 +7,40 @@
 </head>
 <body>
 
-<div id="headerArea">
-  <!-- バッジ付き掲示板 -->
-  <div id="notificationArea">
-    <span class="board-title">📮 掲示板</span>
-    <span id="badge" class="badge"></span>
-  </div>
+<h2>掲示板</h2>
 
-  <!-- 年ツリー -->
-  <div id="yearTags"></div>
+<!-- 投稿フォーム -->
+<div class="form-area">
+  <input id="name" type="text" placeholder="名前"><br><br>
+  <textarea id="text" placeholder="投稿内容"></textarea><br>
+  <input id="image" type="file" accept="image/*"><br><br>
+  <button id="send">送信</button>
 </div>
 
 <hr>
 
-<h2>投稿フォーム</h2>
-
-<input id="name" type="text" placeholder="名前"><br><br>
-
-<textarea id="text" placeholder="投稿内容（20文字×5行）" rows="5" cols="20"></textarea><br>
-
-<input id="image" type="file" accept="image/*"><br><br>
-
-<button id="send">送信</button>
+<!-- 通知バッジ（投稿フォーム横に配置） -->
+<div id="notificationArea" style="display: flex; align-items: center; gap: 6px;">
+  <span>📮 掲示板</span>
+  <span id="badge"
+    style="
+      background:red;color:white;
+      padding:2px 7px;
+      border-radius:50%;
+      font-size:12px;
+      display:none;
+    ">
+  </span>
+</div>
 
 <hr>
 
-<!-- 月タグ -->
+<!-- ツリー -->
+<div id="yearTags"></div>
 <div id="monthTags"></div>
-
-<!-- 日タグ -->
 <div id="dayTags"></div>
 
-<!-- 投稿一覧 -->
+<!-- 投稿表示エリア -->
 <div id="posts"></div>
 
 <script type="module" src="app.js"></script>
