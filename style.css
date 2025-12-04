@@ -85,3 +85,22 @@ body {
   border-radius: 4px;
 }
 
+.month-tags, .day-tags {
+  margin: 10px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.month-tag, .day-tag {
+  padding: 6px 10px;
+  background: #eee;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.month-tag.active, .day-tag.active {
+  background: #cfe3ff;
+  font-weight: bold;
+}
+
