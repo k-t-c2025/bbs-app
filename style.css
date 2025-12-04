@@ -1,82 +1,43 @@
 body {
   font-family: sans-serif;
-  margin: 20px;
+  padding: 20px;
 }
 
-/* -------------------------
-  ヘッダー（掲示板＋年ツリー）
-----------------------------*/
-#headerArea {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-  margin-bottom: 20px;
-}
-
-.board-title {
-  font-size: 20px;
-  font-weight: bold;
-  position: relative;
-}
-
-.badge {
-  position: absolute;
-  top: -10px;
-  right: -15px;
-  background: red;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 50%;
-  font-size: 12px;
-  display: none;
-}
-
-/* -------------------------
-  タグ（年・月・日）
-----------------------------*/
-.year-tag,
-.month-tag,
-.day-tag {
-  padding: 6px 10px;
-  margin: 4px 0;
+.year, .month, .day {
   cursor: pointer;
+  font-weight: bold;
+  padding: 4px;
   display: inline-block;
-  border-radius: 6px;
+  margin: 3px;
+  border-radius: 5px;
 }
 
-/* 年 → 濃い青 */
-.year-tag {
-  background: #2d6cdf;
-  color: #fff;
+.year { background: #d0e7ff; }
+.month { background: #ffe7c4; }
+.day { background: #e3ffd3; }
+
+.day:hover, .year:hover, .month:hover {
+  opacity: 0.7;
 }
 
-/* 月 → 明るめ青 */
-.month-tag {
-  background: #6ea8ff;
-}
-
-/* 日 → グレー */
-.day-tag {
-  background: #ddd;
-}
-
-/* -------------------------
-  投稿カード
-----------------------------*/
 .post {
-  padding: 10px;
   border: 1px solid #ccc;
-  margin: 8px 0;
+  padding: 10px;
+  margin: 6px 0;
   border-radius: 8px;
   background: #fafafa;
 }
 
-.post.unread {
-  background: #ffecec;
-  border-color: #ff9999;
+.unread {
+  background: #ffecec !important;
 }
 
-/* 返信は右にずらす */
-.reply {
-  margin-left: 20px;
+.replyCard {
+  margin-left: 30px;
+  border-left: 3px solid #aaa;
+  padding-left: 10px;
+}
+
+button {
+  cursor: pointer;
 }
